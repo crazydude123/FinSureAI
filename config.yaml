@@ -1,0 +1,41 @@
+model:
+  name: "Qwen/Qwen3-4B-Instruct-2507"
+  quantization: "4bit"
+  lora_r: 16
+  lora_alpha: 32
+  lora_dropout: 0.05
+  target_modules: ["q_proj", "v_proj"]
+
+dataset:
+  name: "virattt/financial-qa-10K"
+  split: "train"
+  subsample: 1000  # Set to null for full dataset
+  seed: 42
+
+training:
+  output_dir: "./finetuned_qwen"
+  num_train_epochs: 1
+  per_device_train_batch_size: 4
+  gradient_accumulation_steps: 4
+  learning_rate: 0.0002
+  fp16: true
+  save_steps: 500
+  logging_steps: 100
+  optim: "paged_adamw_8bit"
+  weight_decay: 0.01
+  warmup_steps: 100
+  evaluation_strategy: "no"
+  report_to: "none"
+  max_seq_length: 2048
+
+inference:
+  port: 8000
+  host: "0.0.0.0"
+  max_model_len: 65536
+  max_tokens: 512
+  temperature: 0.0
+
+modal:
+  gpu: "A100"  # Can be "H100", "A100", etc.
+  timeout_finetune: 3600
+  timeout_inference: 1800
