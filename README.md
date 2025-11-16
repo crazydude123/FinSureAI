@@ -49,6 +49,72 @@ python finetune.py
 python inference.py
 ```
 
+### ART (Agent Reinforcement Trainer) - RL Fine-Tuning
+
+This repository includes **ART (Agent Reinforcement Trainer)** from OpenPipe for a second-phase RL fine-tuning step after SFT. ART uses GRPO (Group Relative Policy Optimization) to further improve the model's performance through reinforcement learning.
+
+#### What is ART?
+
+ART adds a reinforcement learning stage on top of the existing SFT (Supervised Fine-Tuning) pipeline. After the initial SFT training, ART uses a reward function to train the model to generate better responses. The reward function evaluates:
+
+- Semantic similarity to ground truth answers
+- Key token coverage
+- Answer length appropriateness
+- Detection of repetition and hallucinations
+
+#### Running SFT + GRPO Training
+
+The training script (`finetune.py`) automatically runs both phases:
+
+1. **Phase 1: SFT** - Supervised fine-tuning with LoRA
+2. **Phase 2: GRPO** - Reinforcement learning with ART
+
+Simply run:
+
+```bash
+python finetune.py
+```
+
+This will:
+- Train the model using SFTTrainer
+- Save the merged SFT model to `./merged_finetuned_qwen`
+- Continue with GRPO training using GRPOTrainer
+- Save the ART model to `./models/qwen-4b-art`
+
+#### Model Outputs
+
+- **SFT Model**: `./merged_finetuned_qwen` (after Phase 1)
+- **ART Model**: `./models/qwen-4b-art` (after Phase 2)
+
+#### Running Inference with ART Model
+
+To use the ART fine-tuned model for inference, use the `--use_art` flag:
+
+```bash
+python inference.py --use_art
+```
+
+To use the SFT model (default):
+
+```bash
+python inference.py
+```
+
+You can also provide custom context and question:
+
+```bash
+python inference.py --use_art --context "Your context here" --question "Your question here"
+```
+
+#### Reward Function
+
+The reward function (`reward.py`) uses:
+- **Sentence Transformers** (`all-MiniLM-L6-v2`) for semantic similarity scoring
+- Heuristic checks for answer quality (length, repetition, hallucinations)
+- Key token matching bonuses
+
+You can customize the reward function in `reward.py` to better match your specific use case.
+
 ### Running on Modal
 
 1. Install Modal CLI:
