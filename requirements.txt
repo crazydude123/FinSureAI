@@ -11,3 +11,6 @@ jupyter>=1.0.0
 ipykernel>=6.0.0
 # art-openpipe>=0.1.7  # Install from GitHub: pip install git+https://github.com/openpipe/art.git
 sentence-transformers
+sentence-transformers
+evaluate>=0.4.0
+tqdm>=4.0.0
