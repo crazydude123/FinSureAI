@@ -262,9 +262,139 @@ def run_inference(context: str, question: str, use_art: bool = False):
 
     return answer
 
+
+@app.function(
+    image=image,
+    gpu=gpu.A100(),
+    volumes={"/models": volume},
+    timeout=1800
+)
+def agents_inference(
+    proof: str,
+    question: str = "Is this proof correct? What is the logical inconsistency in this argument?",
+    num_iters: int = 3,
+    seed: int = None,
+    use_art: bool = False,
+    max_tokens: int = 1024,
+    temperature: float = 0.7
+):
+    import random
+    import numpy as np
+    import torch
+    from transformers import AutoTokenizer, AutoModelForCausalLM
+    import os
+
+    # Select model path
+    model_path = "/models/qwen-4b-art" if use_art else "/models/merged_finetuned_qwen"
+    print(f"Loading model from: {model_path}")
+
+    # Check if model exists
+    if not os.path.exists(model_path):
+        return f"Error: Model not found at {model_path}. Please run finetune_model first."
+
+    # Generate random seed if not provided
+    seed = seed if seed is not None else random.randint(0, 2**31 - 1)
+    print(f"Using random seed: {seed}")
+
+    def set_seed(s):
+        random.seed(s)
+        np.random.seed(s)
+        torch.manual_seed(s)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(s)
+
+    set_seed(seed)
+
+    model = AutoModelForCausalLM.from_pretrained(
+        model_path,
+        torch_dtype=torch.float16,
+        device_map="auto",
+        trust_remote_code=True
+    )
+    tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
+
+    def generate(messages, max_t=max_tokens, temp=temperature, s=None):
+        if s is not None:
+            set_seed(s)
+        
+        text = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+        inputs = tokenizer(text, return_tensors="pt").to(model.device)
+        
+        with torch.no_grad():
+            outputs = model.generate(
+                **inputs,
+                max_new_tokens=max_t,
+                temperature=temp,
+                do_sample=True,
+                pad_token_id=tokenizer.eos_token_id,
+                repetition_penalty=1.1,
+                eos_token_id=tokenizer.eos_token_id
+            )
+        
+        generated_text = tokenizer.decode(outputs[0][inputs['input_ids'].shape[1]:], skip_special_tokens=True).strip()
+        return generated_text
+
+    # Initial verification
+    system = "You are an AI scientist specialized in verifying mathematical proofs and logical arguments. Be precise, thorough, and identify any inconsistencies, unproven assumptions, invalid steps, or errors."
+    messages = [
+        {"role": "system", "content": system},
+        {"role": "user", "content": f"Proof/Argument:\n{proof}\n\nQuestion: {question}\n\nProvide a detailed analysis."}
+    ]
+    
+    initial_analysis = generate(messages, temp=temperature * 0.8, s=seed)
+    current_analysis = initial_analysis
+    conversation = messages + [{"role": "assistant", "content": initial_analysis}]
+    
+    for i in range(num_iters):
+        subseed = int((seed + (i + 1) * 12345) % (2**31))
+        critique_seed = int((subseed + 54321) % (2**31))
+        
+        # Critique
+        critique_system = "You are a harsh, meticulous self-critic for proof verifications. Identify ANY logical holes, inconsistencies, overlooked assumptions, invalid inferences, missed edge cases, or ways to improve clarity/accuracy. Be thorough and specific."
+        critique_messages = [
+            {"role": "system", "content": critique_system},
+            {"role": "user", "content": f"""Previous analysis:
+{current_analysis}
+
+Original Proof/Argument:
+{proof}
+
+Original Question:
+{question}
+
+Provide a detailed critique, pointing out weaknesses and suggesting revisions:"""}
+        ]
+        
+        critique = generate(critique_messages, max_t=max_tokens//2, temp=temperature * 1.1, s=critique_seed)
+        
+        # Early stop check
+        critique_lower = critique.lower()
+        if any(phrase in critique_lower for phrase in ["no major issues", "solid", "correct overall", "no inconsistencies", "valid proof"]):
+            break
+        
+        # Revise
+        revise_messages = conversation + [
+            {"role": "user", "content": f"Critique of your analysis:\n{critique}\n\nRevise your analysis to address all points in the critique. Improve accuracy, fill gaps, and ensure logical soundness."}
+        ]
+        
+        revise_seed = int((critique_seed + 11111) % (2**31))
+        revised_analysis = generate(revise_messages, temp=temperature * 0.6, s=revise_seed)
+        current_analysis = revised_analysis
+        conversation.append({"role": "assistant", "content": revised_analysis})
+    
+    final_result = f"""FINAL SELF-VERIFIED ANALYSIS (seed: {seed}, iterations: {min(i+1, num_iters)}):
+
+{current_analysis}"""
+    return final_result
+
+
 # To run locally or deploy
 if __name__ == "__main__":
     # For local testing, but Modal functions run on cloud
     print("Run training with: modal run modal_app.py::finetune_model")
     print("Run inference (SFT): modal run modal_app.py::run_inference --context 'your context' --question 'your question'")
     print("Run inference (ART): modal run modal_app.py::run_inference --context 'your context' --question 'your question' --use-art")
+    print("Run agents inference (SFT): modal run modal_app.py::agents_inference --proof 'your proof'")
+    print("Run agents inference (ART): modal run modal_app.py::agents_inference --proof 'your proof' --use-art")
