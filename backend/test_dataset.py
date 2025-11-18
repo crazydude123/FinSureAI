@@ -5,7 +5,7 @@ Test script to verify dataset connectivity and test reward function.
 import os
 from datasets import load_dataset
 from transformers import AutoTokenizer
-from reward import compute_reward
+from legacy.reward import compute_reward
 
 print("=" * 80)
 print("Testing Dataset Connection and Reward Function")
@@ -158,5 +158,5 @@ print("\n✓ Dataset connection: WORKING")
 print("✓ Tokenizer: WORKING")
 print("✓ Reward function: WORKING")
 print("✓ GRPO dataset preparation: WORKING")
-print("\nReady to run training with: python finetune.py")
+print("\nReady to run training with: python backend/legacy/finetune.py")
 

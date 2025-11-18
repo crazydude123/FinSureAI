@@ -1,170 +1,103 @@
-# FinSure AI
+# FinSureAI
 
-Fine-Tuning Qwen3-4B-Instruct on Financial QA Data with DSPy Inference
+FinSureAI is a full-stack platform for uploading proprietary financial datasets, triggering GPU finetuning jobs on Modal, and chatting with the resulting Qwen or Llama checkpoints. The frontend runs on Next.js (App Router) + Tailwind + shadcn UI, authentication and storage are handled by Supabase, and long-running training/inference workloads live entirely inside Modal serverless functions.
 
-## Overview
+## Architecture
 
-FinSure AI is a project for fine-tuning the Qwen3-4B-Instruct model on financial question-answering data and performing inference using DSPy. It's designed to be hardware-agnostic as long as a GPU cluster is connected (e.g., H100, A100, etc.).
+- **Frontend**: Next.js 14 App Router, Tailwind CSS, shadcn primitives, Supabase Auth (email/password), protected dashboard with drag-and-drop uploader, model selector, job progress, and chat UI.
+- **APIs**: Vercel-ready serverless routes for dataset upload, finetune trigger, job status polling, and inference proxy.
+- **Backend tooling**: Python notebooks, benchmarking scripts, and inference agents under `backend/` for experimentation.
+- **Modal jobs**: Production GPU workflows defined under `modal/` for finetuning (LoRA + GRPO) and HTTPS inference endpoints.
 
-## Features
-
-- **Modal Compatible**: Run on Modal's cloud GPUs for easy scaling.
-- **Kaggle Compatible**: Jupyter notebook version for Kaggle kernels.
-- **Hardware Agnostic**: Works on any connected GPU cluster.
-- **Easy Setup**: Simple commands to get started.
-
-## Quick Start
-
-### Prerequisites
-
-- Python 3.8+
-- GPU with CUDA support (for local runs) or Apple Silicon Mac (M1/M2/M3) for MPS acceleration
-- Modal account (for cloud runs)
-- Kaggle account (for notebook runs)
-
-### Installation
-
-1. Clone or download this repository.
-2. Install dependencies:
-
-```bash
-pip install -r requirements.txt
+```
+FinSureAI/
+├── app/                    # Next.js App Router structure
+├── backend/                # Legacy research assets and datasets
+├── lib/                    # Shared utilities (env, Supabase, Modal)
+├── modal/                  # Modal finetune + inference jobs
+├── tests/                  # Vitest suites exercising API helpers
+└── README.md
 ```
 
-### Running Locally
+## Getting Started
 
-1. **On Mac (Apple Silicon)**: Ensure PyTorch with MPS support is installed. The code uses `device_map="auto"` which will detect and use MPS.
-
-   Fine-tune the model (may be slower due to shared memory):
+### 1. Install dependencies
 
 ```bash
-python finetune.py
+pnpm install   # or npm install / yarn install
 ```
 
-2. **On Linux/Windows with CUDA GPU**: Standard setup.
+### 2. Configure environment variables
 
-3. Run inference (works on both):
+Duplicate `.env.local.example` into `.env.local` and add the credentials from Supabase, Modal, and your JWT secret. The schema is validated by `lib/env.ts` during builds to prevent missing keys on Vercel.
+
+### 3. Run the development server
 
 ```bash
-python inference.py
+pnpm dev
 ```
 
-### ART (Agent Reinforcement Trainer) - RL Fine-Tuning
+Navigate to `http://localhost:3000`, create an account with Supabase Auth, upload a `.json/.jsonl/.zip` dataset, pick a base model, start finetuning, and chat with the deployed endpoint after it completes.
 
-This repository includes **ART (Agent Reinforcement Trainer)** from OpenPipe for a second-phase RL fine-tuning step after SFT. ART uses GRPO (Group Relative Policy Optimization) to further improve the model's performance through reinforcement learning.
+### 4. Execute smoke tests
 
-#### What is ART?
-
-ART adds a reinforcement learning stage on top of the existing SFT (Supervised Fine-Tuning) pipeline. After the initial SFT training, ART uses a reward function to train the model to generate better responses. The reward function evaluates:
-
-- Semantic similarity to ground truth answers
-- Key token coverage
-- Answer length appropriateness
-- Detection of repetition and hallucinations
-
-#### Running SFT + GRPO Training
-
-The training script (`finetune.py`) automatically runs both phases:
-
-1. **Phase 1: SFT** - Supervised fine-tuning with LoRA
-2. **Phase 2: GRPO** - Reinforcement learning with ART
-
-Simply run:
+Vitest ensures that dataset uploads, finetune triggers, and inference proxy logic behave as expected without hitting external services.
 
 ```bash
-python finetune.py
+pnpm test
 ```
 
-This will:
-- Train the model using SFTTrainer
-- Save the merged SFT model to `./merged_finetuned_qwen`
-- Continue with GRPO training using GRPOTrainer
-- Save the ART model to `./models/qwen-4b-art`
+## Modal Jobs
 
-#### Model Outputs
+- `modal/finetune_job.py`: Downloads the dataset from Supabase Storage, runs LoRA SFT followed by GRPO (ART) reinforcement learning, saves artifacts to a shared Modal Volume, and returns the inference endpoint URL.
+- `modal/inference_job.py`: Serves the fine-tuned weights behind a Modal `web_endpoint`, supporting streaming prompts from the Next.js dashboard.
+- `modal/reward.py`: Reward function used during GRPO, identical to the legacy implementation.
+- `modal/Dockerfile` + `modal/requirements.txt`: Deterministic environment definition for standalone GPU containers.
 
-- **SFT Model**: `./merged_finetuned_qwen` (after Phase 1)
-- **ART Model**: `./models/qwen-4b-art` (after Phase 2)
-
-#### Running Inference with ART Model
-
-To use the ART fine-tuned model for inference, use the `--use_art` flag:
+Deploy from the repo root:
 
 ```bash
-python inference.py --use_art
+modal deploy modal/finetune_job.py
+modal deploy modal/inference_job.py
 ```
 
-To use the SFT model (default):
+## Supabase Schema
 
-```bash
-python inference.py
-```
+Create a `jobs` table to store Modal job metadata and endpoint URLs:
 
-You can also provide custom context and question:
+| Column        | Type      | Notes                           |
+| ------------- | --------- | --------------------------------|
+| `job_id`      | text (PK) | Modal job identifier            |
+| `user_id`     | uuid      | Supabase user                   |
+| `dataset_url` | text      | Public Supabase Storage URL     |
+| `model_name`  | text      | Base model slug                 |
+| `status`      | text      | RUNNING / COMPLETED / FAILED    |
+| `endpoint_url`| text      | Modal inference endpoint        |
 
-```bash
-python inference.py --use_art --context "Your context here" --question "Your question here"
-```
+## Deployment
 
-#### Reward Function
+1. **Vercel**: Connect the repo, add the env vars from `.env.local.example`, and deploy. All API routes are serverless-compatible and rely solely on Supabase + Modal HTTP calls.
+2. **Modal**: Deploy `finetune_job` and `inference_endpoint` functions. Provide the resulting endpoint URL via the job return payload.
+3. **Supabase Storage**: Create a bucket named `datasets` (or update `SUPABASE_BUCKET_NAME`) with `public` access for inference downloads.
 
-The reward function (`reward.py`) uses:
-- **Sentence Transformers** (`all-MiniLM-L6-v2`) for semantic similarity scoring
-- Heuristic checks for answer quality (length, repetition, hallucinations)
-- Key token matching bonuses
+## Testing Matrix
 
-You can customize the reward function in `reward.py` to better match your specific use case.
+| Test                                | Location                  | Purpose                                      |
+| ----------------------------------- | ------------------------- | -------------------------------------------- |
+| Dataset upload helper               | `tests/api/upload.test.ts`| Verifies `.jsonl` uploads reach Supabase     |
+| Finetune job trigger + metadata     | `tests/api/finetune.test.ts` | Ensures Modal jobs are recorded in DB    |
+| Inference proxy                     | `tests/api/inference.test.ts` | Validates endpoint forwarding logic    |
 
-### Running on Modal
+## Scripts
 
-1. Install Modal CLI:
+- `pnpm dev` – start Next.js dev server
+- `pnpm build && pnpm start` – production build
+- `pnpm lint` – run ESLint
+- `pnpm test` – run Vitest suite
 
-```bash
-pip install modal
-modal setup
-```
+## Notes
 
-2. Fine-tune on Modal:
-
-```bash
-modal run modal_app.py::finetune_model
-```
-
-3. Run inference on Modal:
-
-```bash
-modal run modal_app.py::run_inference --context "Your context here" --question "Your question here"
-```
-
-### Running on Kaggle
-
-1. Upload `finsure_ai_notebook.ipynb` to a Kaggle notebook.
-2. Set accelerator to GPU.
-3. Run the cells in order.
-
-## Configuration
-
-Edit `config.yaml` to customize:
-
-- Model settings
-- Dataset parameters
-- Training hyperparameters
-- Modal GPU type
-
-## Dataset
-
-Uses `virattt/financial-qa-10K` from Hugging Face, containing 10K financial QA pairs from NVIDIA's 10-K filings.
-
-## Hardware Agnosticity
-
-The setup automatically detects and utilizes available GPUs. For Modal, specify the GPU type in `config.yaml` or directly in the function decorator (e.g., `gpu.H100()` for H100 GPUs).
-
-## Troubleshooting
-
-- If VRAM is insufficient, reduce batch size or use gradient checkpointing.
-- For full dataset, set `subsample: null` in `config.yaml`.
-- Ensure CUDA is installed for local GPU usage.
-
-## License
-
-[Add license if applicable]
+- Never store Supabase service keys on the client. All admin calls go through server routes.
+- Modal workloads are isolated; Vercel doesn’t execute Python.
+- Tailwind + shadcn UI components live under `app/components/ui` and power FileUpload, ModelSelect, TrainButton, ProgressBar, and ChatBox.
+- Existing research notebooks and scripts remain untouched under `backend/` for reference.
