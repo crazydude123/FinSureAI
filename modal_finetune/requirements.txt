@@ -1,0 +1,16 @@
+torch>=2.0.0
+transformers>=4.40.0
+datasets>=2.18.0
+peft>=0.10.0
+trl>=0.8.0
+accelerate>=0.28.0
+# bitsandbytes>=0.43.0  # CUDA-only, not available on Mac. Use for Linux/Windows with CUDA GPU
+dspy-ai>=2.4.0
+modal>=0.60.0
+jupyter>=1.0.0
+ipykernel>=6.0.0
+# art-openpipe>=0.1.7  # Install from GitHub: pip install git+https://github.com/openpipe/art.git
+sentence-transformers
+sentence-transformers
+evaluate>=0.4.0
+tqdm>=4.0.0
