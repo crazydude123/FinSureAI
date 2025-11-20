@@ -14,7 +14,7 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+
 lib64/
 parts/
 sdist/
@@ -165,6 +165,7 @@ coverage/
 .env.development.local
 .env.test.local
 .env.production.local
+!.env.example
 
 # Vercel
 .vercel
@@ -178,9 +179,30 @@ lerna-debug.log*
 
 # TypeScript
 *.tsbuildinfo
-next-env.d.ts
 
 # Lock files (optional - some teams prefer to commit these)
 # package-lock.json
 # yarn.lock
 # pnpm-lock.yaml
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Jupyter
+*.ipynb_checkpoints
+*.ipynb
+
+# Python virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+*~

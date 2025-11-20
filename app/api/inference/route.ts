@@ -4,13 +4,13 @@ import { runInference } from '@/lib/modalClient';
 import { createSupabaseServiceClient } from '@/lib/supabaseAdmin';
 import type { InferenceRequestPayload } from '@/lib/types';
 
-export async function resolveEndpoint(jobId: string, supabase?: SupabaseClient) {
+async function resolveEndpoint(jobId: string, supabase?: SupabaseClient) {
   const client = supabase ?? createSupabaseServiceClient();
   const { data } = await client.from('jobs').select('endpoint_url').eq('job_id', jobId).single();
   return data?.endpoint_url ?? null;
 }
 
-export async function callInference(payload: InferenceRequestPayload, supabase?: SupabaseClient) {
+async function callInference(payload: InferenceRequestPayload, supabase?: SupabaseClient) {
   const endpointUrl = payload.endpoint_url ?? (payload.job_id ? await resolveEndpoint(payload.job_id, supabase) : null);
   if (!endpointUrl) {
     throw new Error('Endpoint not ready yet');

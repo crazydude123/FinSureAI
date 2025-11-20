@@ -4,7 +4,7 @@ import { triggerFinetuneJob } from '@/lib/modalClient';
 import { createSupabaseServiceClient } from '@/lib/supabaseAdmin';
 import type { TrainRequestPayload } from '@/lib/types';
 
-export async function createFinetuneRecord(payload: TrainRequestPayload, supabase?: SupabaseClient) {
+async function createFinetuneRecord(payload: TrainRequestPayload, supabase?: SupabaseClient) {
   const { dataset_url: datasetUrl, model_name: modelName, user_id: userId } = payload;
   const { job_id } = await triggerFinetuneJob({ datasetUrl, modelName, userId });
   const client = supabase ?? createSupabaseServiceClient();

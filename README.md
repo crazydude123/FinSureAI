@@ -29,7 +29,13 @@ pnpm install   # or npm install / yarn install
 
 ### 2. Configure environment variables
 
-Duplicate `.env.local.example` into `.env.local` and add the credentials from Supabase, Modal, and your JWT secret. The schema is validated by `lib/env.ts` during builds to prevent missing keys on Vercel.
+Copy `.env.example` to `.env.local` and add the credentials from Supabase and Modal:
+
+```bash
+cp .env.example .env.local
+```
+
+Then edit `.env.local` with your actual credentials.
 
 ### 3. Run the development server
 
@@ -76,9 +82,123 @@ Create a `jobs` table to store Modal job metadata and endpoint URLs:
 
 ## Deployment
 
-1. **Vercel**: Connect the repo, add the env vars from `.env.local.example`, and deploy. All API routes are serverless-compatible and rely solely on Supabase + Modal HTTP calls.
-2. **Modal**: Deploy `finetune_job` and `inference_endpoint` functions. Provide the resulting endpoint URL via the job return payload.
-3. **Supabase Storage**: Create a bucket named `datasets` (or update `SUPABASE_BUCKET_NAME`) with `public` access for inference downloads.
+### Prerequisites
+
+Before deploying, ensure you have:
+- A Supabase account with a project created
+- A Modal account with API credentials
+- A Vercel account (free tier works)
+- A GitHub account
+
+### Step 1: Supabase Setup
+
+1. Create a new Supabase project at [supabase.com](https://supabase.com)
+2. Create a `jobs` table with the following schema:
+
+```sql
+CREATE TABLE jobs (
+  job_id TEXT PRIMARY KEY,
+  user_id UUID NOT NULL,
+  dataset_url TEXT NOT NULL,
+  model_name TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'RUNNING',
+  endpoint_url TEXT,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+3. Create a storage bucket named `datasets`:
+   - Go to Storage in your Supabase dashboard
+   - Create a new bucket called `datasets`
+   - Set it to `public` access for inference downloads
+
+4. Note down your credentials:
+   - `NEXT_PUBLIC_SUPABASE_URL`: Project URL from Settings > API
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: Anon/public key from Settings > API
+   - `SUPABASE_SERVICE_ROLE_KEY`: Service role key from Settings > API (keep this secret!)
+
+### Step 2: Modal Setup
+
+1. Sign up at [modal.com](https://modal.com)
+2. Install Modal CLI: `pip install modal`
+3. Authenticate: `modal token new`
+4. Deploy the Modal functions:
+
+```bash
+cd modal
+modal deploy finetune_job.py
+modal deploy inference_job.py
+```
+
+5. Note down your API credentials from the Modal dashboard
+
+### Step 3: GitHub Repository
+
+1. Initialize git (if not already done):
+
+```bash
+git init
+git add .
+git commit -m "Initial commit"
+```
+
+2. Create a new repository on GitHub
+3. Push your code:
+
+```bash
+git remote add origin https://github.com/your-username/finsureai.git
+git branch -M main
+git push -u origin main
+```
+
+### Step 4: Deploy to Vercel
+
+1. Go to [vercel.com](https://vercel.com) and sign in
+2. Click "New Project" and import your GitHub repository
+3. Configure your project:
+   - **Framework Preset**: Next.js
+   - **Build Command**: `pnpm build` (or leave default)
+   - **Install Command**: `pnpm install` (or leave default)
+
+4. Add environment variables (from `.env.example`):
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `SUPABASE_SERVICE_ROLE_KEY`
+   - `SUPABASE_BUCKET` (set to `datasets`)
+   - `MODAL_API_TOKEN`
+   - `MODAL_API_SECRET`
+
+5. Click "Deploy" and wait for the build to complete
+
+### Step 5: Post-Deployment
+
+1. Visit your deployed URL
+2. Create a test account
+3. Upload a sample `.jsonl` dataset
+4. Start a finetuning job and monitor progress
+5. Chat with your fine-tuned model once training completes
+
+### Continuous Deployment
+
+Vercel automatically deploys:
+- **Production**: Every push to the `main` branch
+- **Preview**: Every pull request
+
+### Troubleshooting
+
+- **Build failures**: Check environment variables are set correctly
+- **Database errors**: Verify Supabase credentials and table schema
+- **Modal errors**: Ensure Modal functions are deployed and credentials are correct
+- **Upload issues**: Check Supabase storage bucket permissions
+
+### Local Development vs Production
+
+For local development:
+1. Copy `.env.example` to `.env.local`
+2. Fill in your credentials
+3. Run `pnpm dev`
+
+For production, all environment variables are managed through Vercel's dashboard.
 
 ## Testing Matrix
 

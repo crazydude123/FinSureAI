@@ -31,7 +31,7 @@ function deriveDatasetFilename(url?: string | null) {
   }
 }
 
-export async function fetchJobStatus(jobId: string, supabase?: SupabaseClient): Promise<JobStatusPayload> {
+async function fetchJobStatus(jobId: string, supabase?: SupabaseClient): Promise<JobStatusPayload> {
   const client = supabase ?? createSupabaseServiceClient();
   const { data: jobRecord } = await client
     .from('jobs')

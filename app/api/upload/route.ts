@@ -24,7 +24,7 @@ function buildObjectPath(filename: string) {
   return `uploads/${crypto.randomUUID()}-${normalized}${extension ? '' : '.jsonl'}`;
 }
 
-export async function uploadBufferToSupabase(buffer: Buffer, filename: string, contentType: string, supabase?: SupabaseClient) {
+async function uploadBufferToSupabase(buffer: Buffer, filename: string, contentType: string, supabase?: SupabaseClient) {
   const objectPath = buildObjectPath(filename);
   const client = supabase ?? createSupabaseServiceClient();
   const { data, error } = await client.storage.from(env.SUPABASE_BUCKET_NAME).upload(objectPath, buffer, {
