@@ -24,12 +24,14 @@ export default function AuthForm() {
     const fn = isSignUp ? supabase.auth.signUp : supabase.auth.signInWithPassword;
     const { error: authError } = await fn({ email, password });
 
-    setLoading(false);
     if (authError) {
+      setLoading(false);
       setError(authError.message);
       return;
     }
 
+    // Explicitly redirect to dashboard after successful login
+    router.push('/dashboard');
     router.refresh();
   }
 
