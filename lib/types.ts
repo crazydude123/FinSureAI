@@ -4,6 +4,9 @@ export interface TrainRequestPayload {
     user_id: string;
 }
 
+export type JobLifecycleState = 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED';
+
+
 export interface InferenceRequestPayload {
     endpoint_url?: string;
     job_id?: string;
