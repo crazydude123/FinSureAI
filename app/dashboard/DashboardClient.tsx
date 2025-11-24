@@ -137,7 +137,7 @@ export default function DashboardClient({ userId }: Props) {
           </CardHeader>
           <CardContent className="space-y-4">
             <TrainButton disabled={!canStart} loading={launching} onClick={startTraining} />
-            <ProgressBar value={status.progress} state={status.state} label={statusLabel} />
+            <ProgressBar value={status.progress} state={status.state as any} label={statusLabel} />
             {error ? <p className="text-xs text-red-400">{error}</p> : null}
             <div className="rounded-xl border border-slate-900/60 bg-slate-950/40 p-3 text-xs text-slate-400">
               <p className="font-semibold uppercase tracking-wide text-slate-500">Job details</p>
