@@ -7,32 +7,80 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 
 export default function AuthForm() {
-  const supabase = createSupabaseBrowserClient();
   const router = useRouter();
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    
     const formData = new FormData(event.currentTarget);
     const email = String(formData.get('email'));
     const password = String(formData.get('password'));
     setLoading(true);
     setError(null);
+    setSuccessMessage(null);
 
-    const fn = isSignUp ? supabase.auth.signUp : supabase.auth.signInWithPassword;
-    const { error: authError } = await fn({ email, password });
+    try {
+      // Create client fresh for each request to ensure proper initialization
+      const supabase = createSupabaseBrowserClient();
+      
+      if (!supabase || !supabase.auth) {
+        setLoading(false);
+        setError('Supabase client is not configured. Please check your environment variables.');
+        return;
+      }
 
-    if (authError) {
+      let authError = null;
+      let session = null;
+      let user = null;
+      
+      if (isSignUp) {
+        const result = await supabase.auth.signUp({ email, password });
+        authError = result.error;
+        session = result.data.session;
+        user = result.data.user;
+        
+        console.log('Sign up result:', { error: authError, hasSession: !!session, hasUser: !!user });
+        
+        // If sign up succeeds but no session (email confirmation required)
+        if (!authError && !session && user) {
+          setLoading(false);
+          setError(null);
+          setSuccessMessage('Account created! Please check your email to confirm your account, then sign in.');
+          // Switch to sign in mode
+          setIsSignUp(false);
+          return;
+        }
+      } else {
+        const result = await supabase.auth.signInWithPassword({ email, password });
+        authError = result.error;
+        session = result.data.session;
+        console.log('Sign in result:', { error: authError, hasSession: !!session });
+      }
+
+      if (authError) {
+        setLoading(false);
+        setError(authError.message);
+        return;
+      }
+
+      // Only redirect if we have a session
+      if (session) {
+        router.push('/dashboard');
+        router.refresh();
+      } else {
+        setLoading(false);
+        setError('Authentication succeeded but no session was created. Please try signing in.');
+      }
+    } catch (err) {
       setLoading(false);
-      setError(authError.message);
-      return;
+      const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
+      setError(errorMessage);
+      console.error('Auth error:', err);
     }
-
-    // Explicitly redirect to dashboard after successful login
-    router.push('/dashboard');
-    router.refresh();
   }
 
   return (
@@ -51,13 +99,21 @@ export default function AuthForm() {
           <Input id="password" name="password" type="password" minLength={8} required disabled={loading} placeholder="••••••••" />
         </div>
         {error ? <p className="text-sm text-red-400">{error}</p> : null}
+        {successMessage ? <p className="text-sm text-green-400">{successMessage}</p> : null}
         <Button className="w-full" disabled={loading} type="submit">
           {loading ? 'Please wait…' : isSignUp ? 'Create account' : 'Sign in'}
         </Button>
       </form>
       <p className="mt-4 text-center text-sm text-slate-500">
         {isSignUp ? 'Already have an account?' : "Need an account?"}{' '}
-        <button className="text-brand" onClick={() => setIsSignUp((prev) => !prev)}>
+        <button 
+          className="text-brand" 
+          onClick={() => {
+            setIsSignUp((prev) => !prev);
+            setError(null);
+            setSuccessMessage(null);
+          }}
+        >
           {isSignUp ? 'Sign in' : 'Sign up'}
         </button>
       </p>
