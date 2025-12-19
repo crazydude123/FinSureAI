@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+venv/
+venv_openpipe/
+ENV/
+env/
+
+# Environment variables
+.env
+.env.local
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Docker
+*.log
+
+# Model checkpoints and data
+models/
+checkpoints/
+*.pt
+*.pth
+*.ckpt
+
+# Temporary files
+/tmp/
+*.tmp
+*.jsonl.tmp
+
+# W&B
+wandb/

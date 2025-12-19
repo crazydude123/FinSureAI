@@ -133,7 +133,7 @@ export default function DashboardClient({ userId }: Props) {
         <Card>
           <CardHeader>
             <CardTitle>Training controls</CardTitle>
-            <CardDescription>Launch Modal job and monitor its lifecycle.</CardDescription>
+            <CardDescription>Launch OpenPipe job and monitor via W&B.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <TrainButton disabled={!canStart} loading={launching} onClick={startTraining} />
@@ -159,14 +159,36 @@ export default function DashboardClient({ userId }: Props) {
                     <span className="text-slate-500">Job ID:</span> {jobId}
                   </li>
                 ) : null}
+                {(status as any).metrics?.reward !== undefined ? (
+                  <li>
+                    <span className="text-slate-500">Reward:</span> {(status as any).metrics.reward.toFixed(3)}
+                  </li>
+                ) : null}
+                {(status as any).metrics?.loss !== undefined ? (
+                  <li>
+                    <span className="text-slate-500">Loss:</span> {(status as any).metrics.loss.toFixed(4)}
+                  </li>
+                ) : null}
+                {(status as any).wandbUrl ? (
+                  <li>
+                    <a
+                      href={(status as any).wandbUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-400 hover:text-blue-300 underline"
+                    >
+                      View in W&B Dashboard →
+                    </a>
+                  </li>
+                ) : null}
               </ul>
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>Modal logs</CardTitle>
-            <CardDescription>Live tail of the past five events.</CardDescription>
+            <CardTitle>Training logs</CardTitle>
+            <CardDescription>Live tail from OpenPipe/W&B.</CardDescription>
           </CardHeader>
           <CardContent>
             {status.logs && status.logs.length > 0 ? (

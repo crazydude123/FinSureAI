@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { runInference } from '@/lib/modalClient';
+import { runInference } from '@/lib/openpipeClient';  // Changed from modalClient
 import { createSupabaseServiceClient } from '@/lib/supabaseAdmin';
 import type { InferenceRequestPayload } from '@/lib/types';
 

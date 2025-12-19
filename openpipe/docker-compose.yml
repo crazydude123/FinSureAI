@@ -1,0 +1,27 @@
+services:
+  openpipe-training:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: finsureai-openpipe
+    runtime: nvidia # Requires nvidia-docker
+    environment:
+      - WANDB_API_KEY=${WANDB_API_KEY}
+      - OPENPIPE_API_KEY=${OPENPIPE_API_KEY:-}
+      - SUPABASE_URL=${SUPABASE_URL:-}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY:-}
+    volumes:
+      - ./:/workspace
+      - openpipe-models:/models # Persistent volume for model checkpoints
+    command: python3 finetune_job.py
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu ]
+
+volumes:
+  openpipe-models:
+    driver: local
